@@ -17,3 +17,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "arc-swap-kotlin"
+
