@@ -51,6 +51,11 @@ val androidSdkManager = projectAndroidSdkDir.resolve(
     },
 )
 val androidSdkInstallMarker = projectAndroidSdkDir.resolve(".install-complete")
+val requiredAndroidSdkPackageDirs = listOf(
+    projectAndroidSdkDir.resolve("platform-tools"),
+    projectAndroidSdkDir.resolve("platforms/android-$projectCompileSdk"),
+    projectAndroidSdkDir.resolve("build-tools/$projectAndroidBuildTools"),
+)
 
 fun writeAndroidLocalProperties() {
     val sdkDirPropertyValue = projectAndroidSdkDir.absolutePath.replace("\\", "/")
@@ -63,6 +68,11 @@ fun sdkManagerCommand(vararg args: String): List<String> =
     } else {
         listOf(androidSdkManager.absolutePath) + args
     }
+
+fun isProjectAndroidSdkInstalled(): Boolean =
+    androidSdkInstallMarker.exists() &&
+        androidSdkManager.exists() &&
+        requiredAndroidSdkPackageDirs.all { it.exists() }
 
 fun downloadAndroidCommandLineTools() {
     val zipName = "commandlinetools-$androidSdkOsName-${androidCommandLineToolsRevision}_latest.zip"
@@ -115,10 +125,14 @@ fun downloadAndroidCommandLineTools() {
 }
 
 fun installProjectAndroidSdk(execOperations: ExecOperations) {
-    if (androidSdkInstallMarker.exists() && androidSdkManager.exists()) {
+    if (isProjectAndroidSdkInstalled()) {
         writeAndroidLocalProperties()
-        println("setup-android-sdk: SDK already installed at $projectAndroidSdkDir")
+        println("setup-android-sdk: cached SDK already has required packages at $projectAndroidSdkDir")
         return
+    }
+
+    if (androidSdkInstallMarker.exists()) {
+        println("setup-android-sdk: cache marker exists but required Android SDK packages are missing; repairing")
     }
 
     if (!androidSdkManager.exists()) {
@@ -163,7 +177,13 @@ fun installProjectAndroidSdk(execOperations: ExecOperations) {
     println("setup-android-sdk: install log at $installLog")
 
     writeAndroidLocalProperties()
-    androidSdkInstallMarker.writeText("")
+    androidSdkInstallMarker.writeText(
+        """
+        command-line-tools=$androidCommandLineToolsRevision
+        platform=android-$projectCompileSdk
+        build-tools=$projectAndroidBuildTools
+        """.trimIndent() + "\n",
+    )
     println("setup-android-sdk: done")
     println("  SDK at:     $projectAndroidSdkDir")
     println("  configured: local.properties -> $projectAndroidSdkDir")
@@ -405,6 +425,75 @@ tasks.register("setupAndroidSdk") {
     description = "Downloads and configures the project-local Android SDK."
     doLast {
         installProjectAndroidSdk(androidSdkExecOperations)
+    }
+}
+
+val fullTargetBuildTaskNames = setOf(
+    "compileAndroidMain",
+    "compileAndroidHostTest",
+    "compileAndroidDeviceTest",
+    "assembleAndroidMain",
+    "assembleUnitTest",
+    "assembleAndroidTest",
+    "jvmMainClasses",
+    "jvmTestClasses",
+    "jsMainClasses",
+    "jsTestClasses",
+    "wasmJsMainClasses",
+    "wasmJsTestClasses",
+    "wasmWasiMainClasses",
+    "wasmWasiTestClasses",
+    "androidNativeArm32Binaries",
+    "androidNativeArm32TestBinaries",
+    "androidNativeArm64Binaries",
+    "androidNativeArm64TestBinaries",
+    "androidNativeX64Binaries",
+    "androidNativeX64TestBinaries",
+    "androidNativeX86Binaries",
+    "androidNativeX86TestBinaries",
+    "iosArm64Binaries",
+    "iosArm64TestBinaries",
+    "iosSimulatorArm64Binaries",
+    "iosSimulatorArm64TestBinaries",
+    "iosX64Binaries",
+    "iosX64TestBinaries",
+    "linuxArm64Binaries",
+    "linuxArm64TestBinaries",
+    "linuxX64Binaries",
+    "linuxX64TestBinaries",
+    "macosArm64Binaries",
+    "macosArm64TestBinaries",
+    "mingwX64Binaries",
+    "mingwX64TestBinaries",
+    "tvosArm64Binaries",
+    "tvosArm64TestBinaries",
+    "tvosSimulatorArm64Binaries",
+    "tvosSimulatorArm64TestBinaries",
+    "watchosArm32Binaries",
+    "watchosArm32TestBinaries",
+    "watchosArm64Binaries",
+    "watchosArm64TestBinaries",
+    "watchosDeviceArm64Binaries",
+    "watchosDeviceArm64TestBinaries",
+    "watchosSimulatorArm64Binaries",
+    "watchosSimulatorArm64TestBinaries",
+    "assembleArcSwapXCFramework",
+)
+
+tasks.named("build") {
+    dependsOn(fullTargetBuildTaskNames)
+}
+
+afterEvaluate {
+    tasks.named("build") {
+        dependsOn(
+            tasks.matching {
+                name.endsWith("MainClasses") ||
+                    name.endsWith("TestClasses") ||
+                    name.endsWith("Binaries") ||
+                    name.endsWith("XCFramework")
+            },
+        )
     }
 }
 
