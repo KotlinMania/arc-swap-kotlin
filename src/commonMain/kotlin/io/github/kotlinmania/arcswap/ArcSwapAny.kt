@@ -1,7 +1,10 @@
 // port-lint: source lib.rs
+@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
+
 package io.github.kotlinmania.arcswap
 
 import kotlin.concurrent.atomics.AtomicReference
+import kotlin.native.HiddenFromObjC
 
 /**
  * An atomic storage for a reference-counted smart pointer.
@@ -38,6 +41,7 @@ import kotlin.concurrent.atomics.AtomicReference
  * check(arcSwap.load().value == 0)
  * ```
  */
+@HiddenFromObjC
 class ArcSwapAny<T>(value: T) {
 
     /**
