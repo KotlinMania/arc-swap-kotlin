@@ -9,7 +9,7 @@ package io.github.kotlinmania.arcswap
  * are equal only when they point to the same object, and [nullPtr] represents
  * the nullable smart-reference case.
  */
-class RefPtr<out T : Any> private constructor(
+internal class RefPtr<out T : Any> private constructor(
     val value: T?,
 ) {
     val isNull: Boolean get() = value == null
@@ -47,7 +47,7 @@ class RefPtr<out T : Any> private constructor(
  * libraries are not expected to implement it unless they provide their own
  * reference-counted holder.
  */
-interface RefCnt<P, Base : Any> {
+internal interface RefCnt<P, Base : Any> {
     /**
      * Makes another smart reference to the same object.
      */
@@ -98,7 +98,7 @@ interface RefCnt<P, Base : Any> {
  * The upstream non-null holder implementations both collapse to this shape in
  * common Kotlin because the runtime, not the library, owns object reachability.
  */
-class StrongRefCnt<T : Any> : RefCnt<T, T> {
+internal class StrongRefCnt<T : Any> : RefCnt<T, T> {
     override fun clonePointer(me: T): T = me
 
     override fun intoPtr(me: T): RefPtr<T> = RefPtr.of(me)
@@ -112,7 +112,7 @@ class StrongRefCnt<T : Any> : RefCnt<T, T> {
 /**
  * [RefCnt] implementation for nullable smart references.
  */
-class NullableRefCnt<T : Any>(
+internal class NullableRefCnt<T : Any>(
     private val inner: RefCnt<T, T> = StrongRefCnt(),
 ) : RefCnt<T?, T> {
     override fun clonePointer(me: T?): T? = me
@@ -134,7 +134,7 @@ class NullableRefCnt<T : Any>(
  * wrapper preserves the upstream intent by keeping a stable object reference
  * behind a distinct smart-reference type.
  */
-class PinnedRef<out T : Any> private constructor(
+internal class PinnedRef<out T : Any> private constructor(
     val value: T,
 ) {
     companion object {
@@ -145,7 +145,7 @@ class PinnedRef<out T : Any> private constructor(
 /**
  * [RefCnt] implementation for pinned references.
  */
-class PinnedRefCnt<T : Any>(
+internal class PinnedRefCnt<T : Any>(
     private val inner: RefCnt<T, T> = StrongRefCnt(),
 ) : RefCnt<PinnedRef<T>, T> {
     override fun clonePointer(me: PinnedRef<T>): PinnedRef<T> = me
