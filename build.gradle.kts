@@ -220,7 +220,11 @@ kotlin {
         binaries.framework { baseName = "ArcSwap"; xcf.add(this) }
     }
     iosSimulatorArm64 {
-        binaries.framework { baseName = "ArcSwap"; xcf.add(this) }
+        binaries.framework {
+            baseName = "ArcSwap"
+            isStatic = true
+            xcf.add(this)
+        }
     }
     iosX64 {
         binaries.framework { baseName = "ArcSwap"; xcf.add(this) }
