@@ -1,5 +1,9 @@
 // port-lint: source ref_cnt.rs
+@file:OptIn(kotlin.experimental.ExperimentalObjCRefinement::class)
+
 package io.github.kotlinmania.arcswap
+
+import kotlin.native.HiddenFromObjC
 
 /**
  * An opaque identity pointer used by [RefCnt].
@@ -9,7 +13,8 @@ package io.github.kotlinmania.arcswap
  * are equal only when they point to the same object, and [nullPtr] represents
  * the nullable smart-reference case.
  */
-internal class RefPtr<out T : Any> private constructor(
+@HiddenFromObjC
+class RefPtr<out T : Any> private constructor(
     val value: T?,
 ) {
     val isNull: Boolean get() = value == null
@@ -47,7 +52,8 @@ internal class RefPtr<out T : Any> private constructor(
  * libraries are not expected to implement it unless they provide their own
  * reference-counted holder.
  */
-internal interface RefCnt<P, Base : Any> {
+@HiddenFromObjC
+interface RefCnt<P, Base : Any> {
     /**
      * Makes another smart reference to the same object.
      */
@@ -98,7 +104,8 @@ internal interface RefCnt<P, Base : Any> {
  * The upstream non-null holder implementations both collapse to this shape in
  * common Kotlin because the runtime, not the library, owns object reachability.
  */
-internal class StrongRefCnt<T : Any> : RefCnt<T, T> {
+@HiddenFromObjC
+class StrongRefCnt<T : Any> : RefCnt<T, T> {
     override fun clonePointer(me: T): T = me
 
     override fun intoPtr(me: T): RefPtr<T> = RefPtr.of(me)
@@ -112,7 +119,8 @@ internal class StrongRefCnt<T : Any> : RefCnt<T, T> {
 /**
  * [RefCnt] implementation for nullable smart references.
  */
-internal class NullableRefCnt<T : Any>(
+@HiddenFromObjC
+class NullableRefCnt<T : Any>(
     private val inner: RefCnt<T, T> = StrongRefCnt(),
 ) : RefCnt<T?, T> {
     override fun clonePointer(me: T?): T? = me
@@ -134,7 +142,8 @@ internal class NullableRefCnt<T : Any>(
  * wrapper preserves the upstream intent by keeping a stable object reference
  * behind a distinct smart-reference type.
  */
-internal class PinnedRef<out T : Any> private constructor(
+@HiddenFromObjC
+class PinnedRef<out T : Any> private constructor(
     val value: T,
 ) {
     companion object {
@@ -145,7 +154,8 @@ internal class PinnedRef<out T : Any> private constructor(
 /**
  * [RefCnt] implementation for pinned references.
  */
-internal class PinnedRefCnt<T : Any>(
+@HiddenFromObjC
+class PinnedRefCnt<T : Any>(
     private val inner: RefCnt<T, T> = StrongRefCnt(),
 ) : RefCnt<PinnedRef<T>, T> {
     override fun clonePointer(me: PinnedRef<T>): PinnedRef<T> = me

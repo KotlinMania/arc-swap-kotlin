@@ -25,11 +25,6 @@ typealias ArcSwapOption<T> = ArcSwapAny<T?>
 /**
  * A convenience constructor for an empty value.
  *
- * This is equivalent to `ArcSwapOption<T>(null)`. Marked `internal` because
- * Swift Export cannot infer the type parameter from the call site of a
- * no-argument generic factory and fails the
- * `compileSwiftExportMainKotlinMacosArm64` bridge with
- * `Cannot infer type for type parameter 'T'. Specify it explicitly.` Common
- * Kotlin callers can use `ArcSwapAny<T?>(null)` directly.
+ * This is equivalent to `ArcSwapOption<T>(null)`.
  */
-internal fun <T> arcSwapOptionEmpty(): ArcSwapOption<T> = ArcSwapAny(null)
+fun <T> arcSwapOptionEmpty(): ArcSwapOption<T> = ArcSwapAny(null)
