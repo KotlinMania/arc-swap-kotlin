@@ -4,14 +4,14 @@ Based on AST analysis, here are the concrete next steps.
 
 ## Summary
 
-- **Files Present:** 2/21 (9.5%)
-- **Function parity:** 16/139 matched (target 52) — 11.5%
-- **Class/type parity:** 8/55 matched (target 15) — 14.5%
-- **Combined symbol parity:** 24/194 matched (target 67) — 12.4%
-- **Average inline-code cosine:** 0.28 (function body across 2 matched files)
-- **Average documentation cosine:** 0.43 (doc text across 2 matched files)
+- **Files Present:** 3/21 (14.3%)
+- **Function parity:** 17/135 matched (target 65) — 12.6%
+- **Class/type parity:** 10/55 matched (target 19) — 18.2%
+- **Combined symbol parity:** 27/190 matched (target 84) — 14.2%
+- **Average inline-code cosine:** 0.22 (function body across 3 matched files)
+- **Average documentation cosine:** 0.37 (doc text across 3 matched files)
 - **Cheat-zeroed Files:** 0
-- **Critical Issues:** 2 files with <0.60 function similarity
+- **Critical Issues:** 3 files with <0.60 function similarity
 
 ## Priority 1: Fix Incomplete High-Dependency Files
 
@@ -48,7 +48,18 @@ Every matched file is listed below with function and type symbol parity.
 - **Missing types:** `Base`
 - **Tests:** 3/3 matched
 
-### 2. lib
+### 2. as_raw
+
+- **Target:** `arcswap.AsRaw`
+- **Similarity:** 0.10
+- **Dependents:** 3
+- **Priority Score:** 3000309.0
+- **Functions:** 1/1 matched (target 13)
+- **Missing functions:** _none_
+- **Types:** 2/2 matched (target 4)
+- **Missing types:** _none_
+
+### 3. lib
 
 - **Target:** `arcswap.Guard`
 - **Similarity:** 0.19
@@ -69,16 +80,6 @@ For each file to be considered "complete":
 - Documentation ported
 - port-lint header present
 
-## Next Commands
-
-```bash
-# Initialize task queue for systematic porting
-cd tools/ast_distance
-./ast_distance --init-tasks ../../tmp/arc-swap/src rust ../../src/commonMain/kotlin/io/github/kotlinmania/arcswap kotlin tasks.json ../../AGENTS.md
-
-# Get next high-priority task
-./ast_distance --assign tasks.json <agent-id>
-```
 ## Reexport / Wiring Modules
 
 These files match `reexport_modules` patterns in `.ast_distance_config.json`. They are filtered out of
