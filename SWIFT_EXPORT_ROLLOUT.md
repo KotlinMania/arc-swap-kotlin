@@ -42,14 +42,13 @@ proven end-to-end with a working `swift test` invocation against the
 
 ### The five changes
 
-1. **`build.gradle.kts`** — **both** iOS Simulator framework binaries
-   (`iosSimulatorArm64` *and* `iosX64`) now have `isStatic = true`.
-   The Swift Export SPM bridge expects a static framework for the iOS
-   Simulator so that the SPM linker can pull in the symbol
-   implementations directly. Both simulator slices must match — if
-   `iosSimulatorArm64` is static and `iosX64` is left dynamic, the
-   `assembleDebugIosSimulatorFatFrameworkFor<Name>XCFramework` task
-   fails with:
+1. **`build.gradle.kts`** — all iOS family framework binaries
+   (`iosArm64`, `iosSimulatorArm64`, and `iosX64`) now have
+   `isStatic = true`. The Swift Export SPM bridge expects a static
+   framework for the iOS Simulator so that the SPM linker can pull in
+   the symbol implementations directly. The Gradle fat-framework tasks
+   also require every iOS family input framework to match — if one slice
+   is static and another is dynamic, assembly fails with:
 
    ```
    Cannot create a fat framework from:
@@ -58,14 +57,13 @@ proven end-to-end with a working `swift test` invocation against the
      All input frameworks must be either static or dynamic
    ```
 
-   The other Apple targets (`iosArm64`, `tvosArm64`,
-   `tvosSimulatorArm64`, `watchos*`, `macosArm64`) stay dynamic.
+   The other Apple target families (`tvosArm64`, `tvosSimulatorArm64`,
+   `watchos*`, `macosArm64`) stay dynamic.
 
    > **Note**: earlier versions of this recipe and of `apply.sh` flipped
-   > only `iosSimulatorArm64`. Repos that landed the rollout before this
-   > correction need a follow-up commit adding `isStatic = true` to
-   > `iosX64`. http-kotlin's `build.gradle.kts:218-231` is the working
-   > reference shape.
+   > only `iosSimulatorArm64`, then only the simulator pair. Repos that
+   > landed either rollout before this correction need a follow-up commit
+   > adding `isStatic = true` to every iOS family framework.
 
 2. **`.github/workflows/swift.yml`** — a new platform workflow with a
    `workflow_call:` trigger, matching the shape of the existing
@@ -327,9 +325,9 @@ ran before opening this PR — is checked in at the repo root as
 
 ## What this PR changes
 
-- `build.gradle.kts` — `iosSimulatorArm64` framework binary now has
-  `isStatic = true` so the Swift Export SPM bridge can link against
-  it.
+- `build.gradle.kts` — iOS family framework binaries now have
+  `isStatic = true` so the Swift Export SPM bridge and Gradle
+  fat-framework tasks can link against matching static inputs.
 - `.github/workflows/swift.yml` (new) — `workflow_call:` platform
   workflow that sets the full Xcode-style environment, runs
   `./gradlew embedSwiftExportForXcode`, then runs `swift test` from
