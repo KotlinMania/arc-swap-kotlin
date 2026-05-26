@@ -217,7 +217,11 @@ kotlin {
         binaries.framework { baseName = "ArcSwap"; xcf.add(this) }
     }
     iosArm64 {
-        binaries.framework { baseName = "ArcSwap"; xcf.add(this) }
+        binaries.framework {
+            baseName = "ArcSwap"
+            isStatic = true
+            xcf.add(this)
+        }
     }
     iosSimulatorArm64 {
         binaries.framework {
@@ -227,10 +231,9 @@ kotlin {
         }
     }
     iosX64 {
-        // iOS Simulator targets share an XCFramework "fat" stage that
-        // requires every input framework to be either all static or all
-        // dynamic. iosSimulatorArm64 is already declared static for the
-        // Swift Export SPM bridge, so iosX64 must match.
+        // iOS fat-framework assembly requires every input framework in the
+        // family to be either all static or all dynamic. The Swift Export SPM
+        // bridge needs static simulator slices, so the iOS family is static.
         binaries.framework {
             baseName = "ArcSwap"
             isStatic = true
@@ -375,8 +378,8 @@ rootProject.extensions.configure<YarnRootExtension>("kotlinYarn") {
     resolution("**/minimatch", "10.2.5")
     resolution("picomatch", "4.0.4")
     resolution("**/picomatch", "4.0.4")
-    resolution("qs", "6.15.1")
-    resolution("**/qs", "6.15.1")
+    resolution("qs", "6.15.2")
+    resolution("**/qs", "6.15.2")
     resolution("socket.io-parser", "4.2.6")
     resolution("**/socket.io-parser", "4.2.6")
     resolution("ws", "8.20.1")
