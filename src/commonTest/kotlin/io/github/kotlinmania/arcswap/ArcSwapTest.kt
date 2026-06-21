@@ -8,7 +8,6 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class ArcSwapTest {
-
     /**
      * Similar to the doc tests of [ArcSwap], but happens more times.
      */

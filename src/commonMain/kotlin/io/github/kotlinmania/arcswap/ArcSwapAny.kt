@@ -42,8 +42,9 @@ import kotlin.native.HiddenFromObjC
  * ```
  */
 @HiddenFromObjC
-class ArcSwapAny<T>(value: T) {
-
+class ArcSwapAny<T>(
+    value: T,
+) {
     /**
      * The actual reference holder. Kotlin's garbage collector handles reclamation, so no
      * hazard-pointer machinery is required.

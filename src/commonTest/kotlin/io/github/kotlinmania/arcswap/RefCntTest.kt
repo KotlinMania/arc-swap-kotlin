@@ -8,8 +8,13 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class RefCntTest {
-    data class Data(val value: Int)
-    data class Unmovable(val value: Int)
+    data class Data(
+        val value: Int,
+    )
+
+    data class Unmovable(
+        val value: Int,
+    )
 
     @Test
     fun refCntArc() {

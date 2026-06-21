@@ -8,8 +8,9 @@ package io.github.kotlinmania.arcswap
  * [ArcSwapAny.loadFull]). It exposes the value loaded, so most operations are to be done
  * using that.
  */
-class Guard<out T> internal constructor(internal val protected: T) {
-
+class Guard<out T> internal constructor(
+    internal val protected: T,
+) {
     /**
      * The value held by this guard.
      */

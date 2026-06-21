@@ -42,7 +42,8 @@ private sealed interface Sealed
 @HiddenFromObjC
 private class RawIdentity<out T : Any>(
     private val pointer: RefPtr<T>,
-) : AsRaw<T>, Sealed {
+) : AsRaw<T>,
+    Sealed {
     override fun asRaw(): RefPtr<T> = pointer
 }
 
