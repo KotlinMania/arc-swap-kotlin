@@ -44,7 +44,7 @@ import kotlin.native.HiddenFromObjC
 @HiddenFromObjC
 class ArcSwapAny<T>(
     value: T,
-) {
+) : Access<T> {
     /**
      * The actual reference holder. Kotlin's garbage collector handles reclamation, so no
      * hazard-pointer machinery is required.
@@ -102,7 +102,12 @@ class ArcSwapAny<T>(
      * }
      * ```
      */
-    fun load(): Guard<T> = Guard(ptr.load())
+    override fun load(): Guard<T> = Guard(ptr.load())
+
+    /**
+     * Turns this [ArcSwapAny] into an [Access] with a projection inside the held value.
+     */
+    fun <U> map(projection: (T) -> U): MapAccess<T, U> = MapAccess(this, projection)
 
     /**
      * Replaces the value inside this instance.
