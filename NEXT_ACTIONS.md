@@ -4,14 +4,14 @@ Based on AST analysis, here are the concrete next steps.
 
 ## Summary
 
-- **Files Present:** 3/21 (14.3%)
-- **Function parity:** 17/135 matched (target 65) — 12.6%
-- **Class/type parity:** 10/55 matched (target 19) — 18.2%
-- **Combined symbol parity:** 27/190 matched (target 84) — 14.2%
-- **Average inline-code cosine:** 0.22 (function body across 3 matched files)
-- **Average documentation cosine:** 0.37 (doc text across 3 matched files)
+- **Files Present:** 5/21 (23.8%)
+- **Function parity:** 42/119 matched (target 103) — 35.3%
+- **Class/type parity:** 25/55 matched (target 38) — 45.5%
+- **Combined symbol parity:** 67/174 matched (target 141) — 38.5%
+- **Average inline-code cosine:** 0.34 (function body across 5 matched files)
+- **Average documentation cosine:** 0.46 (doc text across 5 matched files)
 - **Cheat-zeroed Files:** 0
-- **Critical Issues:** 3 files with <0.60 function similarity
+- **Critical Issues:** 4 files with <0.60 function similarity
 
 ## Priority 1: Fix Incomplete High-Dependency Files
 
@@ -59,17 +59,41 @@ Every matched file is listed below with function and type symbol parity.
 - **Types:** 2/2 matched (target 4)
 - **Missing types:** _none_
 
-### 3. lib
+### 3. cache
+
+- **Target:** `arcswap.Cache`
+- **Similarity:** 0.71
+- **Dependents:** 1
+- **Priority Score:** 1011602.9
+- **Functions:** 11/11 matched (target 13)
+- **Missing functions:** _none_
+- **Types:** 4/5 matched (target 6)
+- **Missing types:** `Access`
+- **Tests:** 4/4 matched
+
+### 4. lib
 
 - **Target:** `arcswap.Guard`
-- **Similarity:** 0.19
+- **Similarity:** 0.20
 - **Dependents:** 0
-- **Priority Score:** 162908.1
-- **Functions:** 8/22 matched (target 27)
-- **Missing functions:** `deref`, `from`, `default`, `fmt`, `ptr_eq`, `drop`, `new`, `with_strategy`, `map`, `from_pointee`, `empty`, `const_empty`, `load_cnt`, `lease_overflow`
+- **Priority Score:** 152908.0
+- **Functions:** 9/22 matched (target 28)
+- **Missing functions:** `deref`, `from`, `default`, `fmt`, `ptr_eq`, `drop`, `new`, `with_strategy`, `from_pointee`, `empty`, `const_empty`, `load_cnt`, `lease_overflow`
 - **Types:** 5/7 matched (target 6)
 - **Missing types:** `Target`, `ArcSwapWeak`
 - **Tests:** 0/2 matched
+
+### 5. access
+
+- **Target:** `arcswap.Access`
+- **Similarity:** 0.33
+- **Dependents:** 0
+- **Priority Score:** 133706.7
+- **Functions:** 13/22 matched (target 24)
+- **Missing functions:** `check_static_dispatch_direct`, `check_static_dispatch`, `check_dyn_dispatch_direct`, `check_dyn_dispatch`, `check_transition`, `_expect_access`, `_dyn_access`, `_dyn_access_send`, `_dyn_access_send_sync`
+- **Types:** 11/15 matched (target 13)
+- **Missing types:** `Guard`, `DirectDeref`, `Target`, `AccessConvert`
+- **Tests:** 10/19 matched
 
 ## Success Criteria
 
