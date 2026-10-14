@@ -3,6 +3,9 @@
 
 package io.github.kotlinmania.arcswap
 
+import io.github.kotlinmania.serde.SerdeResult
+import io.github.kotlinmania.serdecore.ser.Serialize
+import io.github.kotlinmania.serdecore.ser.Serializer
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.native.HiddenFromObjC
 
@@ -44,7 +47,9 @@ import kotlin.native.HiddenFromObjC
 @HiddenFromObjC
 class ArcSwapAny<T>(
     value: T,
-) : Access<T> {
+    val isOption: Boolean = false,
+) : Access<T>,
+    Serialize {
     /**
      * The actual reference holder. Kotlin's garbage collector handles reclamation, so no
      * hazard-pointer machinery is required.
@@ -210,10 +215,35 @@ class ArcSwapAny<T>(
         }
     }
 
+    override fun <Ok> serialize(serializer: Serializer<Ok>): SerdeResult<Ok> {
+        val loaded = load().value
+        return if (isOption) {
+            if (loaded != null) {
+                serializer.serializeSome(ValueSerializer(loaded))
+            } else {
+                serializer.serializeNone()
+            }
+        } else {
+            serializeAnyValue(loaded, serializer)
+        }
+    }
+
     override fun toString(): String = "ArcSwapAny(${ptr.load()})"
 
     override fun equals(other: Any?): Boolean =
         other is ArcSwapAny<*> && ptr.load() == other.ptr.load()
 
     override fun hashCode(): Int = ptr.load().hashCode()
+
+    companion object {
+        /**
+         * Creates an [ArcSwap] containing the given [value].
+         */
+        fun <T> fromPointee(value: T): ArcSwap<T> = ArcSwapAny(value, isOption = false)
+
+        /**
+         * Creates an [ArcSwapOption] containing the given nullable [value].
+         */
+        fun <T> fromOptionPointee(value: T?): ArcSwapOption<T> = ArcSwapAny(value, isOption = true)
+    }
 }

@@ -23,8 +23,18 @@ package io.github.kotlinmania.arcswap
 typealias ArcSwapOption<T> = ArcSwapAny<T?>
 
 /**
+ * Creates an [ArcSwapOption] containing the given nullable [value].
+ */
+fun <T> arcSwapOption(value: T? = null): ArcSwapOption<T> = ArcSwapAny(value, isOption = true)
+
+/**
+ * Creates an [ArcSwapOption] from a pointee value.
+ */
+fun <T> arcSwapOptionFromPointee(value: T?): ArcSwapOption<T> = ArcSwapAny(value, isOption = true)
+
+/**
  * A convenience constructor for an empty value.
  *
  * This is equivalent to `ArcSwapOption<T>(null)`.
  */
-fun <T> arcSwapOptionEmpty(): ArcSwapOption<T> = ArcSwapAny(null)
+fun <T> arcSwapOptionEmpty(): ArcSwapOption<T> = ArcSwapAny(null, isOption = true)
