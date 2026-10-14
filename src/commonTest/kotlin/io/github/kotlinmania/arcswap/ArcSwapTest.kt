@@ -109,7 +109,7 @@ class ArcSwapTest {
         val zero: Any = Any()
         val shared: ArcSwap<Any> = ArcSwapAny(zero)
         var current = zero
-        for (i in 0 until iterations) {
+        repeat(iterations) {
             val next = Any()
             // Success
             val prev = shared.compareAndSwap(current, next)

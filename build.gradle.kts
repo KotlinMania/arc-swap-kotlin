@@ -79,6 +79,31 @@ fun optionalTrimmedProperty(name: String): String? =
 val enabledFeatureNames = csvProperty("project.features")
 val benchmarkEnabled = "benchmark" in enabledFeatureNames
 val benchmarkTargetNames = csvProperty("project.benchmark.targets")
+
+// ============================================================================
+// Native C bindings — per-channel opt-in gates (gradle.properties
+// `project.ffi.{native,jvm,napi,name}`). All default off.
+// Transliterated from libc-kotlin's build.gradle.kts; generalized so tasks,
+// file paths, and npm package names all derive from project.ffi.name.
+// ============================================================================
+fun boolProperty(name: String, default: Boolean = false): Boolean =
+    providers.gradleProperty(name).map { it.trim().lowercase() == "true" }.getOrElse(default)
+
+val nativeFfiEnabled = boolProperty("project.ffi.native")
+val jvmFfiEnabled = boolProperty("project.ffi.jvm")
+val napiFfiEnabled = boolProperty("project.ffi.napi")
+
+val ffiNameRaw = providers.gradleProperty("project.ffi.name").getOrElse("Ffi").trim()
+val ffiName = ffiNameRaw.replaceFirstChar { it.uppercase() } // Libc, Png, ...
+val ffiNameLower = ffiNameRaw.lowercase() // libc, png, ...
+val ffiDefFile = "src/nativeInterop/cinterop/$ffiName.def"
+val ffiWrapperBase = "${ffiNameLower}_wrapper" // libc_wrapper
+val ffiNapiDir = "native/node-$ffiNameLower" // native/node-libc
+val ffiNpmPackage = "@kotlinmania/$ffiNameLower-native-bindings" // @kotlinmania/libc-native-bindings
+
+if (nativeFfiEnabled || jvmFfiEnabled || napiFfiEnabled) {
+    println("FFI channels enabled: native=$nativeFfiEnabled jvm=$jvmFfiEnabled napi=$napiFfiEnabled name=$ffiName")
+}
 val commonBenchmarkBundleName = optionalTrimmedProperty("project.dependencies.commonBenchmarkBundle")
 val commonBenchmarkDependencyBundle =
     commonBenchmarkBundleName?.let { bundleName ->
@@ -91,6 +116,15 @@ val commonBenchmarkDependencyBundle =
 if (benchmarkEnabled && commonBenchmarkDependencyBundle == null) {
     throw GradleException("Feature 'benchmark' requires project.dependencies.commonBenchmarkBundle")
 }
+val commonTestBundleName = optionalTrimmedProperty("project.dependencies.commonTestBundle")
+val commonTestDependencyBundle =
+    commonTestBundleName?.let { bundleName ->
+        extensions
+            .getByType(VersionCatalogsExtension::class.java)
+            .named("libs")
+            .findBundle(bundleName)
+            .orElseThrow { GradleException("Missing libs bundle '$bundleName'") }
+    }
 val benchmarkWarmups = providers.gradleProperty("project.benchmark.warmups").map { it.toInt() }.getOrElse(3)
 val benchmarkIterations = providers.gradleProperty("project.benchmark.iterations").map { it.toInt() }.getOrElse(5)
 val benchmarkIterationTime = providers.gradleProperty("project.benchmark.iterationTime").map { it.toLong() }.getOrElse(1L)
@@ -110,6 +144,11 @@ configurations.configureEach {
                 "org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core-jvm:$intellijCoroutinesVersion",
             ),
         )
+    }
+    if (name.contains("androidDeviceTest", ignoreCase = true) ||
+        (name.contains("Android", ignoreCase = true) && name.endsWith("RuntimeClasspath"))
+    ) {
+        exclude(group = "org.jetbrains", module = "annotations")
     }
 }
 
@@ -309,14 +348,15 @@ if (gradle.startParameter.taskNames.any(::requestedTaskWantsAndroid)) {
     installProjectAndroidSdk(serviceOf())
 }
 
-val ensureAndroidSdk by tasks.registering {
-    group = "setup"
-    description = "Ensures the project-local Android SDK is installed (idempotent)."
-    onlyIf("Android SDK already installed at $projectAndroidSdkDir") { !isProjectAndroidSdkInstalled() }
-    doLast {
-        installProjectAndroidSdk(serviceOf())
+val ensureAndroidSdk =
+    tasks.register("ensureAndroidSdk") {
+        group = "setup"
+        description = "Ensures the project-local Android SDK is installed (idempotent)."
+        onlyIf("Android SDK already installed at $projectAndroidSdkDir") { !isProjectAndroidSdkInstalled() }
+        doLast {
+            installProjectAndroidSdk(serviceOf())
+        }
     }
-}
 
 // Secondary net: order every AGP Android task after the installer (a no-op on
 // warm runs). Excludes androidNative* (Kotlin/Native) and the installer itself.
@@ -410,10 +450,7 @@ kotlin {
         configureBenchmarkCompilation()
         addToXcf()
     }
-    watchosArm64 {
-        configureBenchmarkCompilation()
-        addToXcf()
-    }
+    // watchosArm64 (WatchOS 32 / arm64_32): retired by workspace policy (§5.5.1). WatchOS 32 is not supported.
     watchosDeviceArm64 {
         configureBenchmarkCompilation()
         addToXcf()
@@ -421,13 +458,6 @@ kotlin {
     watchosSimulatorArm64 {
         configureBenchmarkCompilation()
         addToXcf()
-    }
-
-    // iosX64: Intel Mac simulator. Tier 3 in Kotlin/Native but NOT deprecated —
-    // Apple still ships x86_64 iOS simulator runtimes, so it is always built.
-    iosX64 {
-        configureBenchmarkCompilation()
-        addToXcf(static = true)
     }
 
     // Other native — Tier 1/2
@@ -495,6 +525,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            commonTestDependencyBundle?.let { implementation(it) }
         }
         if (benchmarkEnabled) {
             val commonBenchmark = maybeCreate("commonBenchmark")
@@ -556,24 +587,24 @@ tasks.withType<AbstractTestTask>().configureEach {
 // Static analysis: Detekt + Ktlint
 // ============================================================================
 detekt {
-    buildUponDefaultConfig = true
-    allRules = false
-    autoCorrect = false
+    buildUponDefaultConfig.set(true)
+    allRules.set(false)
+    autoCorrect.set(false)
     source.setFrom(files("src"))
     config.setFrom(files("detekt.yml"))
-    parallel = true
+    parallel.set(true)
 }
 
-tasks.withType<io.gitlab.arturbosch.detekt.Detekt>().configureEach {
+tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
     reports {
         html.required.set(true)
         sarif.required.set(true)
-        txt.required.set(false)
-        xml.required.set(false)
+        checkstyle.required.set(false)
     }
 }
 
 ktlint {
+    version.set(libs.versions.ktlintEngine.get())
     debug.set(false)
     verbose.set(false)
     android.set(false)
@@ -591,7 +622,7 @@ ktlint {
 
 if (benchmarkEnabled) {
     tasks
-        .withType<io.gitlab.arturbosch.detekt.Detekt>()
+        .withType<dev.detekt.gradle.Detekt>()
         .matching {
             it.name.contains("BenchmarkBenchmark")
         }.configureEach {
@@ -607,7 +638,7 @@ if (benchmarkEnabled) {
 }
 
 tasks.named("check") {
-    dependsOn(tasks.withType<io.gitlab.arturbosch.detekt.Detekt>())
+    dependsOn(tasks.withType<dev.detekt.gradle.Detekt>())
     dependsOn(tasks.named("ktlintCheck"))
     // Android host unit tests run here alongside the tests that check -> allTests
     // already executes (jvm, macosArm64, the Apple simulators, js, wasmJs,
@@ -675,6 +706,47 @@ rootProject.extensions.configure<NodeJsRootExtension>("kotlinNodeJs") {
     versions.kotlinWebHelpers.version = providers.gradleProperty("node.kotlinWebHelpers.version").getOrElse("3.1.0")
 }
 
+// Make kotlinUpgradeYarnLock and kotlinWasmUpgradeYarnLock dependencies in the build process
+// for KotlinJS and other JavaScript/WASM targets so that yarn.lock is always upgraded automatically.
+val jsTasksNeedingYarnLock =
+    setOf(
+        "compileKotlinJs",
+        "compileTestKotlinJs",
+        "jsProcessResources",
+        "jsTestProcessResources",
+        "jsNodeTest",
+        "jsBrowserTest",
+        "kotlinStoreYarnLock",
+    )
+
+tasks
+    .matching { it.name in jsTasksNeedingYarnLock }
+    .configureEach {
+        dependsOn("kotlinUpgradeYarnLock")
+    }
+
+val wasmTasksNeedingYarnLock =
+    setOf(
+        "compileKotlinWasmJs",
+        "compileTestKotlinWasmJs",
+        "wasmJsProcessResources",
+        "wasmJsTestProcessResources",
+        "wasmJsNodeTest",
+        "wasmJsBrowserTest",
+        "compileKotlinWasmWasi",
+        "compileTestKotlinWasmWasi",
+        "wasmWasiProcessResources",
+        "wasmWasiTestProcessResources",
+        "wasmWasiNodeTest",
+        "kotlinWasmStoreYarnLock",
+    )
+
+tasks
+    .matching { it.name in wasmTasksNeedingYarnLock }
+    .configureEach {
+        dependsOn("kotlinWasmUpgradeYarnLock")
+    }
+
 // ============================================================================
 // Maven Central publishing — Central Portal, first-party + bespoke upload
 // ----------------------------------------------------------------------------
@@ -690,9 +762,10 @@ val publishProjectName = providers.gradleProperty("project.name").getOrElse("unn
 
 // Central requires a Javadoc jar per publication; KMP produces none, so attach
 // an empty one to every Maven publication.
-val emptyJavadocJar by tasks.registering(Jar::class) {
-    archiveClassifier.set("javadoc")
-}
+val emptyJavadocJar =
+    tasks.register<Jar>("emptyJavadocJar") {
+        archiveClassifier.set("javadoc")
+    }
 
 publishing {
     publications.withType<MavenPublication>().configureEach {
@@ -761,125 +834,130 @@ centralPortalPublishTasks.configureEach {
 }
 
 // Zip the staged Maven layout into a single Central Portal deployment bundle.
-val centralPortalBundle by tasks.registering(Zip::class) {
-    group = "publishing"
-    description = "Bundles the staged Maven artifacts into a Central Portal deployment zip."
-    dependsOn(centralPortalPublishTasks)
-    from(layout.buildDirectory.dir("staging-deploy"))
-    archiveFileName.set("$publishProjectName-$version-bundle.zip")
-    destinationDirectory.set(layout.buildDirectory.dir("central-portal"))
-}
+val centralPortalBundle =
+    tasks.register<Zip>("centralPortalBundle") {
+        group = "publishing"
+        description = "Bundles the staged Maven artifacts into a Central Portal deployment zip."
+        dependsOn(centralPortalPublishTasks)
+        from(layout.buildDirectory.dir("staging-deploy"))
+        archiveFileName.set("$publishProjectName-$version-bundle.zip")
+        destinationDirectory.set(layout.buildDirectory.dir("central-portal"))
+    }
 
 // Upload the bundle to the Sonatype Central Portal Publisher API.
 // publishingType: USER_MANAGED (default, safe — validates then waits for a
 // manual release in the Portal UI) or AUTOMATIC (publishes after validation).
-val publishToCentralPortal by tasks.registering {
-    group = "publishing"
-    description = "Uploads the deployment bundle to the Sonatype Central Portal."
-    dependsOn(centralPortalBundle)
-    doLast {
-        val user =
-            providers.gradleProperty("mavenCentralUsername").orNull
-                ?: error("mavenCentralUsername is required to publish to the Central Portal.")
-        val password =
-            providers.gradleProperty("mavenCentralPassword").orNull
-                ?: error("mavenCentralPassword is required to publish to the Central Portal.")
-        val publishingType = providers.gradleProperty("centralPublishingType").getOrElse("USER_MANAGED")
-        val token = Base64.getEncoder().encodeToString("$user:$password".toByteArray(Charsets.UTF_8))
+val publishToCentralPortal =
+    tasks.register("publishToCentralPortal") {
+        group = "publishing"
+        description = "Uploads the deployment bundle to the Sonatype Central Portal."
+        dependsOn(centralPortalBundle)
+        doLast {
+            val user =
+                providers.gradleProperty("mavenCentralUsername").orNull
+                    ?: error("mavenCentralUsername is required to publish to the Central Portal.")
+            val password =
+                providers.gradleProperty("mavenCentralPassword").orNull
+                    ?: error("mavenCentralPassword is required to publish to the Central Portal.")
+            val publishingType = providers.gradleProperty("centralPublishingType").getOrElse("USER_MANAGED")
+            val token = Base64.getEncoder().encodeToString("$user:$password".toByteArray(Charsets.UTF_8))
 
-        val bundle =
-            centralPortalBundle
-                .get()
-                .archiveFile
-                .get()
-                .asFile
-        require(bundle.exists()) { "Deployment bundle not found: $bundle" }
+            val bundle =
+                centralPortalBundle
+                    .get()
+                    .archiveFile
+                    .get()
+                    .asFile
+            require(bundle.exists()) { "Deployment bundle not found: $bundle" }
 
-        val boundary = "CentralPortalBoundary" + UUID.randomUUID().toString().replace("-", "")
-        val crlf = "\r\n"
-        val preamble =
-            (
-                "--$boundary$crlf" +
-                    "Content-Disposition: form-data; name=\"bundle\"; filename=\"${bundle.name}\"$crlf" +
-                    "Content-Type: application/octet-stream$crlf$crlf"
-            ).toByteArray(Charsets.UTF_8)
-        val epilogue = "$crlf--$boundary--$crlf".toByteArray(Charsets.UTF_8)
-        val body = preamble + bundle.readBytes() + epilogue
+            val boundary = "CentralPortalBoundary" + UUID.randomUUID().toString().replace("-", "")
+            val crlf = "\r\n"
+            val preamble =
+                (
+                    "--$boundary$crlf" +
+                        "Content-Disposition: form-data; name=\"bundle\"; filename=\"${bundle.name}\"$crlf" +
+                        "Content-Type: application/octet-stream$crlf$crlf"
+                ).toByteArray(Charsets.UTF_8)
+            val epilogue = "$crlf--$boundary--$crlf".toByteArray(Charsets.UTF_8)
+            val body = preamble + bundle.readBytes() + epilogue
 
-        val deploymentName = "$publishProjectName-$version"
-        val uploadUri =
-            URI(
-                "https://central.sonatype.com/api/v1/publisher/upload" +
-                    "?name=$deploymentName&publishingType=$publishingType",
-            )
-        val request =
-            HttpRequest
-                .newBuilder()
-                .uri(uploadUri)
-                .header("Authorization", "Bearer $token")
-                .header("Content-Type", "multipart/form-data; boundary=$boundary")
-                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                .build()
-
-        val client = HttpClient.newHttpClient()
-        val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-        if (response.statusCode() !in 200..299) {
-            error("Central Portal upload failed: HTTP ${response.statusCode()} — ${response.body()}")
-        }
-        val deploymentId = response.body().trim()
-        logger.lifecycle(
-            "Central Portal upload accepted (deployment id: $deploymentId). " +
-                "publishingType=$publishingType.",
-        )
-        val automaticPublishing = publishingType.equals("AUTOMATIC", ignoreCase = true)
-        val terminalStates =
-            if (automaticPublishing) {
-                setOf("PUBLISHED")
-            } else {
-                setOf("VALIDATED", "PUBLISHED")
-            }
-        val statusUri = URI("https://central.sonatype.com/api/v1/publisher/status?id=$deploymentId")
-        val statusAttempts =
-            providers.gradleProperty("centralPublishStatusAttempts").map(String::toInt).getOrElse(120)
-        val statusDelayMillis =
-            providers.gradleProperty("centralPublishStatusDelayMillis").map(String::toLong).getOrElse(10_000L)
-        repeat(statusAttempts) { attempt ->
-            val statusRequest =
+            val deploymentName = "$publishProjectName-$version"
+            val uploadUri =
+                URI(
+                    "https://central.sonatype.com/api/v1/publisher/upload" +
+                        "?name=$deploymentName&publishingType=$publishingType",
+                )
+            val request =
                 HttpRequest
                     .newBuilder()
-                    .uri(statusUri)
+                    .uri(uploadUri)
                     .header("Authorization", "Bearer $token")
-                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .header("Content-Type", "multipart/form-data; boundary=$boundary")
+                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
                     .build()
-            val statusResponse = client.send(statusRequest, HttpResponse.BodyHandlers.ofString())
-            if (statusResponse.statusCode() !in 200..299) {
-                error("Central Portal status check failed: HTTP ${statusResponse.statusCode()} — ${statusResponse.body()}")
+
+            val client = HttpClient.newHttpClient()
+            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+            if (response.statusCode() !in 200..299) {
+                error("Central Portal upload failed: HTTP ${response.statusCode()} — ${response.body()}")
             }
-            val statusBody = JsonSlurper().parseText(statusResponse.body()) as Map<*, *>
-            val deploymentState =
-                statusBody["deploymentState"]?.toString()
-                    ?: error("Central Portal status response did not contain deploymentState: ${statusResponse.body()}")
-            when (deploymentState) {
-                "FAILED" -> error("Central Portal deployment failed: ${statusBody["errors"] ?: statusResponse.body()}")
-                in terminalStates -> {
-                    logger.lifecycle("Central Portal deployment $deploymentId reached $deploymentState.")
-                    return@doLast
+            val deploymentId = response.body().trim()
+            logger.lifecycle(
+                "Central Portal upload accepted (deployment id: $deploymentId). " +
+                    "publishingType=$publishingType.",
+            )
+            val automaticPublishing = publishingType.equals("AUTOMATIC", ignoreCase = true)
+            val terminalStates =
+                if (automaticPublishing) {
+                    setOf("PUBLISHED")
+                } else {
+                    setOf("VALIDATED", "PUBLISHED")
+                }
+            val statusUri = URI("https://central.sonatype.com/api/v1/publisher/status?id=$deploymentId")
+            val statusAttempts =
+                providers.gradleProperty("centralPublishStatusAttempts").map(String::toInt).getOrElse(120)
+            val statusDelayMillis =
+                providers.gradleProperty("centralPublishStatusDelayMillis").map(String::toLong).getOrElse(10_000L)
+            repeat(statusAttempts) { attempt ->
+                val statusRequest =
+                    HttpRequest
+                        .newBuilder()
+                        .uri(statusUri)
+                        .header("Authorization", "Bearer $token")
+                        .POST(HttpRequest.BodyPublishers.noBody())
+                        .build()
+                val statusResponse = client.send(statusRequest, HttpResponse.BodyHandlers.ofString())
+                if (statusResponse.statusCode() !in 200..299) {
+                    error("Central Portal status check failed: HTTP ${statusResponse.statusCode()} — ${statusResponse.body()}")
+                }
+                val statusBody = JsonSlurper().parseText(statusResponse.body()) as Map<*, *>
+                val deploymentState =
+                    statusBody["deploymentState"]?.toString()
+                        ?: error("Central Portal status response did not contain deploymentState: ${statusResponse.body()}")
+                when (deploymentState) {
+                    "FAILED" -> {
+                        error("Central Portal deployment failed: ${statusBody["errors"] ?: statusResponse.body()}")
+                    }
+
+                    in terminalStates -> {
+                        logger.lifecycle("Central Portal deployment $deploymentId reached $deploymentState.")
+                        return@doLast
+                    }
+                }
+                logger.lifecycle(
+                    "Central Portal deployment $deploymentId is $deploymentState " +
+                        "(${attempt + 1}/$statusAttempts).",
+                )
+                if (attempt + 1 < statusAttempts) {
+                    Thread.sleep(statusDelayMillis)
                 }
             }
-            logger.lifecycle(
-                "Central Portal deployment $deploymentId is $deploymentState " +
-                    "(${attempt + 1}/$statusAttempts).",
+            error(
+                "Central Portal deployment $deploymentId did not reach " +
+                    "${terminalStates.joinToString("/")} after $statusAttempts checks.",
             )
-            if (attempt + 1 < statusAttempts) {
-                Thread.sleep(statusDelayMillis)
-            }
         }
-        error(
-            "Central Portal deployment $deploymentId did not reach " +
-                "${terminalStates.joinToString("/")} after $statusAttempts checks.",
-        )
     }
-}
 
 // ============================================================================
 // Tasks
@@ -888,6 +966,13 @@ val publishToCentralPortal by tasks.registering {
 // Exact test lifecycle task. Without this, ./gradlew test is ambiguous between
 // Android test task names. This runs commonTest through the KMP allTests
 // lifecycle and adds the Android host + Swift Export parity tests.
+tasks.register("test") {
+    group = "verification"
+    description = "Runs the commonTest-backed KMP suite, Android host tests, and Swift Export smoke test."
+    dependsOn("hostTests")
+    dependsOn("swiftExportSmokeTest")
+}
+
 tasks.register("setupAndroidSdk") {
     group = "setup"
     description = "Downloads and configures the project-local Android SDK. (Alias for ensureAndroidSdk)"
@@ -920,14 +1005,30 @@ tasks.matching { it.name.contains("GenerateSPMPackage") }.configureEach {
                 ?.asFile
         if (spmDir != null && spmDir.exists()) {
             spmDir.walkTopDown().filter { it.name == "Package.swift" }.forEach { file ->
-                val text = file.readText()
+                var text = file.readText()
+                if (text.contains("swift-tools-version: 6.0")) {
+                    text = text.replace("swift-tools-version: 6.0", "swift-tools-version: 5.9")
+                }
                 if (!text.contains("platforms:")) {
-                    file.writeText(
+                    text =
                         text.replaceFirst(
                             Regex("""(let package = Package\s*\(\s*name:\s*"[^"]*",)"""),
-                            "$1\n    platforms: [.macOS(.v14)],",
-                        ),
+                            "$1\n    platforms: [.macOS(\"15.0\")],",
+                        )
+                } else if (text.contains(".macOS(.v15)") || text.contains(".macOS(.v14)")) {
+                    text = text.replace(".macOS(.v15)", ".macOS(\"15.0\")").replace(".macOS(.v14)", ".macOS(\"15.0\")")
+                }
+                file.writeText(text)
+            }
+            spmDir.walkTopDown().filter { it.name == "OrgJetbrainsKotlinxKotlinxSerializationCore.swift" }.forEach { file ->
+                val text = file.readText()
+                val cleaned =
+                    text.replace(
+                        Regex("""@_spi\([^)]+\)\s+public func (?:decodeSequentially|shouldEncodeElementDefault|encodeNotNullMark)\([^)]*\)(?:\s*->\s*[^\n{]+)?\s*\{\s*fatalError\([^)]+\)\s*\}"""),
+                        "",
                     )
+                if (cleaned != text) {
+                    file.writeText(cleaned)
                 }
             }
         }
@@ -975,7 +1076,7 @@ tasks.register("swiftExportSmokeTest") {
                         "CONFIGURATION" to "Debug",
                         "ARCHS" to "arm64",
                         "FRAMEWORKS_FOLDER_PATH" to "Frameworks",
-                        "MACOSX_DEPLOYMENT_TARGET" to "14.0",
+                        "MACOSX_DEPLOYMENT_TARGET" to "15.0",
                         "DEPLOYMENT_TARGET_SETTING_NAME" to "MACOSX_DEPLOYMENT_TARGET",
                     ),
                 )
@@ -1010,14 +1111,12 @@ val nativeTargetNames =
         "androidNativeX64",
         "iosArm64",
         "iosSimulatorArm64",
-        "iosX64",
         "linuxArm64",
         "linuxX64",
         "macosArm64",
         "mingwX64",
         "tvosArm64",
         "tvosSimulatorArm64",
-        "watchosArm64",
         "watchosDeviceArm64",
         "watchosSimulatorArm64",
     )
@@ -1035,6 +1134,8 @@ val fullTargetBuildTaskNames =
                 "assembleAndroidDeviceTest",
                 "jvmMainClasses",
                 "jvmTestClasses",
+                "kotlinUpgradeYarnLock",
+                "kotlinWasmUpgradeYarnLock",
                 "jsMainClasses",
                 "jsTestClasses",
                 "wasmJsMainClasses",
@@ -1049,6 +1150,10 @@ val fullTargetBuildTaskNames =
             add("${target}Binaries")
             add("${target}TestBinaries")
         }
+        // Native C binding channels, included only when their gate is on.
+        // A declared channel that fails to build must fail the build loudly.
+        if (jvmFfiEnabled) add("compile${ffiName}Jni")
+        if (napiFfiEnabled) add("buildNode$ffiName")
     }
 
 tasks.named("build") {
