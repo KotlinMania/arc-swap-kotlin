@@ -111,7 +111,9 @@ class ArcSwapAny<T>(
     /**
      * Turns this [ArcSwapAny] into an [Access] with a projection inside the held value.
      */
-    fun <U> map(projection: (T) -> U): io.github.kotlinmania.arcswap.Map<T, U> = io.github.kotlinmania.arcswap.Map(this, projection)
+    fun <U> map(projection: (T) -> U): io.github.kotlinmania.arcswap.Map<T, U> =
+        io.github.kotlinmania.arcswap
+            .Map(this, projection)
 
     /**
      * Replaces the value inside this instance.
