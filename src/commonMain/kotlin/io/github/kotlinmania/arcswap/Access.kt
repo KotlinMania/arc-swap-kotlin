@@ -77,11 +77,6 @@ class Map<T, out U>(
 }
 
 /**
- * Type alias for [Map] access.
- */
-typealias MapAccess<T, U> = Map<T, U>
-
-/**
  * Guard object for [Constant] access.
  */
 class ConstantDeref<out T>(
