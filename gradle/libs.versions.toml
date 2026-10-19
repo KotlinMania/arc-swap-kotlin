@@ -12,7 +12,7 @@ ktlintEngine = "1.8.0"
 kotlinxBenchmark = "0.5.0"
 itertools = "0.1.1"
 onceCell = "0.1.1"
-serde = "0.1.10"
+serde = "0.1.11"
 serdeTest = "0.1.1"
 
 [plugins]
