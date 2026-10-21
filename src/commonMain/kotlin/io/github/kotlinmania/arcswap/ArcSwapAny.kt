@@ -216,18 +216,8 @@ class ArcSwapAny<T>(
         }
     }
 
-    override fun <Ok> serialize(serializer: Serializer<Ok>): SerdeResult<Ok> {
-        val loaded = load().value
-        return if (isOption) {
-            if (loaded != null) {
-                serializer.serializeSome(ValueSerializer(loaded))
-            } else {
-                serializer.serializeNone()
-            }
-        } else {
-            serializeAnyValue(loaded, serializer)
-        }
-    }
+    override fun <Ok> serialize(serializer: Serializer<Ok>): SerdeResult<Ok> =
+        serialize(this, serializer)
 
     override fun toString(): String = "ArcSwapAny(${ptr.load()})"
 

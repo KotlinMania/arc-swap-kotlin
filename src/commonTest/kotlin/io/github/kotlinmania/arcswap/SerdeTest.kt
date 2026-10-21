@@ -22,6 +22,9 @@ class ArcSwapAnyEq<T>(
     override fun <Ok> serialize(serializer: Serializer<Ok>): SerdeResult<Ok> =
         inner.serialize(serializer)
 
+    fun eq(other: ArcSwapAnyEq<T>): Boolean =
+        inner.load().value == other.inner.load().value
+
     override fun equals(other: Any?): Boolean =
         other is ArcSwapAnyEq<*> && inner.load().value == other.inner.load().value
 
@@ -33,13 +36,13 @@ class ArcSwapAnyEq<T>(
         fun <T> deserialize(innerDeserialize: Deserialize<T>): Deserialize<ArcSwapAnyEq<T>> =
             object : Deserialize<ArcSwapAnyEq<T>> {
                 override fun <D : Deserializer> deserialize(deserializer: D): SerdeResult<ArcSwapAnyEq<T>> =
-                    arcSwapDeserialize(innerDeserialize).deserialize(deserializer).map { ArcSwapAnyEq(it) }
+                    ArcSwapDeserialize(innerDeserialize).deserialize(deserializer).map { ArcSwapAnyEq(it) }
             }
 
         fun <T> optionDeserialize(innerDeserialize: Deserialize<T>): Deserialize<ArcSwapAnyEq<T?>> =
             object : Deserialize<ArcSwapAnyEq<T?>> {
                 override fun <D : Deserializer> deserialize(deserializer: D): SerdeResult<ArcSwapAnyEq<T?>> =
-                    arcSwapOptionDeserialize(innerDeserialize).deserialize(deserializer).map { ArcSwapAnyEq(it) }
+                    ArcSwapOptionDeserialize(innerDeserialize).deserialize(deserializer).map { ArcSwapAnyEq(it) }
             }
     }
 }
@@ -50,8 +53,20 @@ data class Foo(
 ) : Serialize {
     override fun <Ok> serialize(serializer: Serializer<Ok>): SerdeResult<Ok> {
         val struct = serializer.serializeStruct("Foo", 2).getOrThrow()
-        struct.serializeField("field0", ValueSerializer(field0)).getOrThrow()
-        struct.serializeField("field1", ValueSerializer(field1)).getOrThrow()
+        struct
+            .serializeField(
+                "field0",
+                object : Serialize {
+                    override fun <O> serialize(serializer: Serializer<O>): SerdeResult<O> = serializer.serializeU64(field0)
+                },
+            ).getOrThrow()
+        struct
+            .serializeField(
+                "field1",
+                object : Serialize {
+                    override fun <O> serialize(serializer: Serializer<O>): SerdeResult<O> = serializer.serializeStr(field1)
+                },
+            ).getOrThrow()
         return struct.end()
     }
 
