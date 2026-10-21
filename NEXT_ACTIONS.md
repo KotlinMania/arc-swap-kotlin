@@ -4,12 +4,12 @@ Based on AST analysis, here are the concrete next steps.
 
 ## Summary
 
-- **Files Present:** 5/21 (23.8%)
-- **Function parity:** 42/119 matched (target 103) — 35.3%
-- **Class/type parity:** 25/55 matched (target 38) — 45.5%
-- **Combined symbol parity:** 67/174 matched (target 141) — 38.5%
-- **Average inline-code cosine:** 0.34 (function body across 5 matched files)
-- **Average documentation cosine:** 0.46 (doc text across 5 matched files)
+- **Files Present:** 6/21 (28.6%)
+- **Function parity:** 41/119 matched (target 122) — 34.5%
+- **Class/type parity:** 27/55 matched (target 45) — 49.1%
+- **Combined symbol parity:** 68/174 matched (target 167) — 39.1%
+- **Average inline-code cosine:** 0.39 (function body across 6 matched files)
+- **Average documentation cosine:** 0.38 (doc text across 6 matched files)
 - **Cheat-zeroed Files:** 0
 - **Critical Issues:** 4 files with <0.60 function similarity
 
@@ -74,13 +74,13 @@ Every matched file is listed below with function and type symbol parity.
 ### 4. lib
 
 - **Target:** `arcswap.Guard`
-- **Similarity:** 0.20
+- **Similarity:** 0.06
 - **Dependents:** 0
-- **Priority Score:** 152908.0
-- **Functions:** 9/22 matched (target 28)
-- **Missing functions:** `deref`, `from`, `default`, `fmt`, `ptr_eq`, `drop`, `new`, `with_strategy`, `from_pointee`, `empty`, `const_empty`, `load_cnt`, `lease_overflow`
-- **Types:** 5/7 matched (target 6)
-- **Missing types:** `Target`, `ArcSwapWeak`
+- **Priority Score:** 222909.4
+- **Functions:** 3/22 matched (target 19)
+- **Missing functions:** `deref`, `from`, `default`, `fmt`, `ptr_eq`, `drop`, `new`, `with_strategy`, `load_full`, `load`, `store`, `swap`, `compare_and_swap`, `map`, `from_pointee`, `empty`, `const_empty`, `load_cnt`, `lease_overflow`
+- **Types:** 4/7 matched (target 5)
+- **Missing types:** `Target`, `ArcSwapAny`, `ArcSwapWeak`
 - **Tests:** 0/2 matched
 
 ### 5. access
@@ -91,9 +91,21 @@ Every matched file is listed below with function and type symbol parity.
 - **Priority Score:** 133706.7
 - **Functions:** 13/22 matched (target 24)
 - **Missing functions:** `check_static_dispatch_direct`, `check_static_dispatch`, `check_dyn_dispatch_direct`, `check_dyn_dispatch`, `check_transition`, `_expect_access`, `_dyn_access`, `_dyn_access_send`, `_dyn_access_send_sync`
-- **Types:** 11/15 matched (target 13)
+- **Types:** 11/15 matched (target 12)
 - **Missing types:** `Guard`, `DirectDeref`, `Target`, `AccessConvert`
 - **Tests:** 10/19 matched
+
+### 6. serde
+
+- **Target:** `arcswap.Serde`
+- **Similarity:** 0.79
+- **Dependents:** 0
+- **Priority Score:** 10902.1
+- **Functions:** 5/6 matched (target 28)
+- **Missing functions:** `eq`
+- **Types:** 3/3 matched (target 9)
+- **Missing types:** _none_
+- **Tests:** 3/4 matched
 
 ## Success Criteria
 
